@@ -135,6 +135,34 @@ namespace scancode.Binding
             }
         }
 
+        private int _curren_index_item = 1;
+        public int Curren_index_item
+        {
+            get => _curren_index_item;
+            set
+            {
+                if (_curren_index_item != value)
+                {
+                    _curren_index_item = value;
+                    OnPropertyChanged(nameof(Curren_index_item));
+                }
+            }
+        }
+
+        private int _to_index_item = 1;
+        public int To_index_item
+        {
+            get => _to_index_item;
+            set
+            {
+                if (_to_index_item != value)
+                {
+                    _to_index_item = value;
+                    OnPropertyChanged(nameof(To_index_item));
+                }
+            }
+        }
+
 
     }
 }
