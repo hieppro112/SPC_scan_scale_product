@@ -1055,7 +1055,6 @@
                                         </TextBox>
                                     </StackPanel>
                                 </Border>
-
                                 <DataGrid x:Name="dgHistory" AutoGenerateColumns="False" >
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="STT" Width="0.8*" Binding="{Binding stt}"/>
@@ -1095,7 +1094,6 @@
                        FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>-->
                                             <TextBlock Text="{Binding totalPage}" FontSize="12" Foreground="{StaticResource TxtMuted}"/>
                                         </StackPanel>
-
                                         <!-- Giữa: các nút trang -->
                                         <StackPanel Grid.Column="1" Orientation="Horizontal">
 

@@ -1,56 +1,77 @@
 ﻿using OpenCvSharp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using OpenCvSharp.Extensions;
+using System;
+using System.Drawing;
 using ZXing;
-using System.Linq;
-using scancode.Models;
+using ZXing.Common;
 
-namespace scancode.Services
+namespace scancode.Helper
 {
+    public class BarcodeResult
+    {
+        public string barcode { get; set; }
+
+        public OpenCvSharp.Rect rect { get; set; }
+    }
+
     public class BarcodeService
     {
-        private string barcodeLast = "";
         private readonly BarcodeReader _reader;
+
         public BarcodeService()
         {
-            _reader = new BarcodeReader
-            {
-                AutoRotate = true,
-                Options = new ZXing.Common.DecodingOptions
-                {
-                    TryHarder = false
-                }
-            };
+            _reader = new BarcodeReader();
 
+            _reader.AutoRotate = true;
+
+            _reader.Options = new DecodingOptions
+            {
+                TryHarder = true,
+                TryInverted = false
+            };
         }
 
         public BarcodeResult Decode(Mat frame)
         {
-            using (var bitmap = BitmapConverter.ToBitmap(frame))
+            if (frame == null || frame.Empty())
+                return null;
+
+            Bitmap bitmap = null;
+
+            try
             {
-                var result = _reader.Decode(bitmap);
+                bitmap =
+                    BitmapConverter.ToBitmap(frame);
+
+                var result =
+                    _reader.Decode(bitmap);
 
                 if (result == null)
-                {
                     return null;
-                }
 
-                var points = result.ResultPoints
-                   .Select(p => new Point((int)p.X, (int)p.Y))
-                   .ToArray();
+                if (string.IsNullOrWhiteSpace(result.Text))
+                    return null;
 
-                Rect rect = Cv2.BoundingRect(points);
                 return new BarcodeResult
                 {
                     barcode = result.Text,
-                    rect = rect
+
+                    rect = new OpenCvSharp.Rect(
+                        0,
+                        0,
+                        frame.Width,
+                        frame.Height
+                    )
                 };
             }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                bitmap?.Dispose();
+            }
         }
-
     }
 }

@@ -13,7 +13,5 @@ namespace scancode.Models
         public string PHTX { get; set; }
         public string PSTX { get; set; }
         public float GAMNG { get; set; }
-
-
     }
 }
