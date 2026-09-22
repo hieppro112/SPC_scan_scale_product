@@ -13,14 +13,14 @@ namespace scancode.Services
     {
         #region lay data po
         private static string connectionString { get; } = "Data Source=192.168.122.2;Initial Catalog=MANUFASPCPD;User ID=kuser;Password=SPC123@";
-        private static string queryCheckPO = @"SELECT TOP (1000) 
-           [AUFNR]
-	      ,[PHCD]
-          ,[PHTX]
-          ,[PSTX]
-          ,[GAMNG]
-          FROM [MANUFASPCPD].[dbo].[MANUFA_F_PD_DT_REQ_HED]
-          where AUFNR = @id";
+        private static string queryCheckPO = @"select REQ_HED.AUFNR,REQ_HED.PHCD,REQ_HED.PHTX,REQ_HED.PSTX,REQ_HED.GAMNG,ORDER_DTL.ZGLOBAL_CODE,Packing.NW,Packing.Qty
+        from [MANUFASPCPD].[dbo].[MANUFA_F_PD_DT_REQ_HED] REQ_HED
+        LEFT JOIN [MANUFASPCPD].[dbo].[MANUFA_F_PD_DT_ORDER_DTL] ORDER_DTL
+        ON  ORDER_DTL.VBELN = REQ_HED.KDAUF
+        LEFT JOIN [F2Database].[dbo].[F2_PackingList_Main] Packing
+        ON ORDER_DTL.ZGLOBAL_CODE = Packing.PoNo
+        WHERE REQ_HED.AUFNR = @id";
+
         public ProductData GetDataForPO(string po)
         {
             using (SqlConnection conn = new SqlConnection(connectionString))
@@ -38,6 +38,7 @@ namespace scancode.Services
                         {
                             Console.WriteLine("reader: " + reader["GAMNG"].ToString());
                             float.TryParse(reader["GAMNG"].ToString(), out float sluong);
+                            float.TryParse(reader["NW"].ToString(), out float trongLuong);
                             return new ProductData
                             {
                                 AUFNR = reader["AUFNR"].ToString(),
@@ -45,6 +46,7 @@ namespace scancode.Services
                                 PHTX = reader["PHTX"].ToString(),
                                 PSTX = reader["PSTX"].ToString(),
                                 GAMNG = sluong,
+                                NumWeight = trongLuong
                             };
                         }
                     }
@@ -58,10 +60,11 @@ namespace scancode.Services
             }
         }
 
+
         #endregion
 
         #region lay data bang history
-        private static string connectHistory { get; } = @"Server=(localdb)\MSSQLLocalDB;Database=Test_db;Trusted_Connection=True;";
+        private static string connectHistory { get; } = @"Data Source=192.168.122.2;Initial Catalog=F2Database;User ID=kproduct;Password=Tanphat@02032013";
         private static string queryGetHistory { get; } = $@"SELECT [stt]
               ,[AUFNR]
               ,[PHCD]
@@ -70,7 +73,7 @@ namespace scancode.Services
               ,[GAMNG]
               ,[kg]
 	          ,[UPDDT]
-              FROM [Test_db].[dbo].[dataHistory]
+              FROM [F2Database].[dbo].[F2_Packing_Scale_History]
               where [AUFNR] like '%' + @aufnr + '%'
               order by [stt] desc
                 OFFSET @indexst ROWS
@@ -83,13 +86,13 @@ namespace scancode.Services
             where not exists 
             (
             select 1
-            from dataHistory 
+            from [F2Database].[dbo].[F2_Packing_Scale_History]
             where [AUFNR] = @AUFNR
             );
 
         ";
         private static string query_getCountList_history { get; } = @"SELECT COUNT(*) AS TotalRow
-            FROM dataHistory;";
+            FROM [dbo].[F2_Packing_Scale_History];";
 
         public List<dataHistory> GetListHistory(string po = "", int stIndex = 0, int length = 5 )
         {
