@@ -3,6 +3,7 @@ using OpenCvSharp;
 using scancode.Helper;
 using scancode.Models;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -13,6 +14,7 @@ namespace scancode.Services
 {
     public class CameraService
     {
+
         // =========================================================
         // CAMERA
         // =========================================================
@@ -80,16 +82,9 @@ namespace scancode.Services
         // YOLO RECTANGLE
         // =========================================================
 
-        private readonly object _rectLock =
-            new object();
-
-        private OpenCvSharp.Rect? lastRect;
-
-        private DateTime lastDetectTime =
-            DateTime.MinValue;
-
-
-        // Rectangle giữ lại trên màn hình
+        private readonly object _rectLock = new object();
+        private List<YoloDetection> lastDetections = new List<YoloDetection>();
+        private DateTime lastDetectTime = DateTime.MinValue;
         private const int KeepRectMs = 500;
 
 
@@ -219,7 +214,7 @@ namespace scancode.Services
 
                         capture.Set(
                             VideoCaptureProperties.Fps,
-                            10
+                            15
                         );
 
 
@@ -278,7 +273,7 @@ namespace scancode.Services
                             )
                         );
 
-
+                        
                         // =============================================
                         // START OK
                         // =============================================
@@ -600,138 +595,245 @@ namespace scancode.Services
         //
         // =========================================================
 
-        private async Task DetectionLoop(
-            CancellationToken token)
+        //private async Task DetectionLoop(
+        //    CancellationToken token)
+        //{
+        //    const int DetectionDelay =
+        //        150;
+
+
+        //    while (
+        //        running &&
+        //        !token.IsCancellationRequested)
+        //    {
+        //        Mat frame = null;
+
+
+        //        try
+        //        {
+        //            // =============================================
+        //            // GET LATEST FRAME
+        //            // =============================================
+
+        //            lock (_frameLock)
+        //            {
+        //                if (
+        //                    latestFrame != null)
+        //                {
+        //                    frame =
+        //                        latestFrame.Clone();
+        //                }
+        //            }
+
+
+        //            if (frame != null)
+        //            {
+        //                // =============================================
+        //                // YOLO
+        //                // =============================================
+
+        //                YoloDetection detection =
+        //                    yoloService.Detect(
+        //                        frame
+        //                    );
+
+
+        //                // =============================================
+        //                // BARCODE FOUND
+        //                // =============================================
+
+        //                if (detection != null)
+        //                {
+        //                    OpenCvSharp.Rect rect =
+        //                        detection.Rect;
+
+
+        //                    // =============================================
+        //                    // SAVE RECTANGLE
+        //                    // =============================================
+
+        //                    lock (_rectLock)
+        //                    {
+        //                        lastRect =
+        //                            rect;
+
+        //                        lastDetectTime =
+        //                            DateTime.Now;
+        //                    }
+
+
+        //                    // =============================================
+        //                    // CROP BARCODE + PADDING
+        //                    // =============================================
+
+        //                    // Mở rộng ROI thêm 25%
+        //                    int paddingX = (int)(rect.Width * 0.25);
+        //                    int paddingY = (int)(rect.Height * 0.25);
+
+        //                    int x = Math.Max(
+        //                        0,
+        //                        rect.X - paddingX
+        //                    );
+
+        //                    int y = Math.Max(
+        //                        0,
+        //                        rect.Y - paddingY
+        //                    );
+
+        //                    int right = Math.Min(
+        //                        frame.Width,
+        //                        rect.X + rect.Width + paddingX
+        //                    );
+
+        //                    int bottom = Math.Min(
+        //                        frame.Height,
+        //                        rect.Y + rect.Height + paddingY
+        //                    );
+
+        //                    OpenCvSharp.Rect roiRect =
+        //                        new OpenCvSharp.Rect(
+        //                            x,
+        //                            y,
+        //                            right - x,
+        //                            bottom - y
+        //                        );
+
+        //                    using (var roi = new Mat(frame, roiRect))
+        //                    using (var resizedRoi = new Mat())
+        //                    {
+        //                        // Phóng ROI barcode lên 2 lần
+        //                        Cv2.Resize(
+        //                            roi,
+        //                            resizedRoi,
+        //                            new OpenCvSharp.Size(
+        //                                roi.Width * 2,
+        //                                roi.Height * 2
+        //                            ),
+        //                            0,
+        //                            0,
+        //                            InterpolationFlags.Cubic
+        //                        );
+
+        //                        // ZXing đọc ảnh đã phóng
+        //                        var result =
+        //                            barcodeService.Decode(resizedRoi);
+
+        //                        if (result != null &&
+        //                            !string.IsNullOrWhiteSpace(result.barcode))
+        //                        {
+        //                            BarcodeReceived?.Invoke(
+        //                                result.barcode
+        //                            );
+        //                        }
+        //                    }
+        //                }
+        //            }
+
+
+        //            await Task.Delay(
+        //                DetectionDelay,
+        //                token
+        //            );
+        //        }
+        //        catch (
+        //            OperationCanceledException)
+        //        {
+        //            break;
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Debug.WriteLine(
+        //                "DetectionLoop: " +
+        //                ex.Message
+        //            );
+        //        }
+        //        finally
+        //        {
+        //            frame?.Dispose();
+        //        }
+        //    }
+        //}
+
+        // =========================================================
+        // YOLO + BARCODE / QR DETECTION LOOP
+        // =========================================================
+        private async Task DetectionLoop(CancellationToken token)
         {
-            const int DetectionDelay =
-                300;
+            const int DetectionDelay = 150;
 
-
-            while (
-                running &&
-                !token.IsCancellationRequested)
+            while (running && !token.IsCancellationRequested)
             {
                 Mat frame = null;
 
-
                 try
                 {
-                    // =============================================
-                    // GET LATEST FRAME
-                    // =============================================
-
                     lock (_frameLock)
                     {
-                        if (
-                            latestFrame != null)
+                        if (latestFrame != null)
                         {
-                            frame =
-                                latestFrame.Clone();
+                            frame = latestFrame.Clone();
                         }
                     }
 
-
                     if (frame != null)
                     {
-                        // =============================================
-                        // YOLO
-                        // =============================================
+                        // 1. GỌI DetectAll() ĐỂ LẤY TẤT CẢ DANH SÁCH MÃ (BARCODE + QR)
+                        List<YoloDetection> detections = yoloService.DetectAll(frame);
 
-                        YoloDetection detection =
-                            yoloService.Detect(
-                                frame
-                            );
-
-
-                        // =============================================
-                        // BARCODE FOUND
-                        // =============================================
-
-                        if (detection != null)
+                        if (detections != null && detections.Count > 0)
                         {
-                            OpenCvSharp.Rect rect =
-                                detection.Rect;
-
-
-                            // =============================================
-                            // SAVE RECTANGLE
-                            // =============================================
-
+                            // Lưu danh sách tất cả các khung nhận diện được để vẽ lên Preview
                             lock (_rectLock)
                             {
-                                lastRect =
-                                    rect;
-
-                                lastDetectTime =
-                                    DateTime.Now;
+                                lastDetections = new List<YoloDetection>(detections);
+                                lastDetectTime = DateTime.Now;
                             }
 
-
-                            // =============================================
-                            // CROP BARCODE
-                            // =============================================
-
-                            using (
-                                var roi =
-                                    new Mat(
-                                        frame,
-                                        rect
-                                    ))
+                            // 2. DUYỆT QUA TẤT CẢ CÁC MÃ PHÁT HIỆN ĐƯỢC ĐỂ ĐỌC NỘI DUNG (CROP + ZXING)
+                            foreach (var detection in detections)
                             {
-                                // =============================================
-                                // ZXING
-                                // =============================================
+                                // In ra Console/Output window của Visual Studio xem ClassId thực sự là bao nhiêu
+                                Debug.WriteLine($"---> PHÁT HIỆN: ClassId = {detection.ClassId} | Confidence = {detection.Confidence}");
+                                OpenCvSharp.Rect rect = detection.Rect;
 
-                                var result =
-                                    barcodeService.Decode(
-                                        roi
-                                    );
+                                int paddingX = (int)(rect.Width * 0.25);
+                                int paddingY = (int)(rect.Height * 0.25);
 
+                                int x = Math.Max(0, rect.X - paddingX);
+                                int y = Math.Max(0, rect.Y - paddingY);
+                                int right = Math.Min(frame.Width, rect.X + rect.Width + paddingX);
+                                int bottom = Math.Min(frame.Height, rect.Y + rect.Height + paddingY);
 
-                                if (
-                                    result != null &&
-                                    !string.IsNullOrWhiteSpace(
-                                        result.barcode
-                                    ))
+                                OpenCvSharp.Rect roiRect = new OpenCvSharp.Rect(x, y, right - x, bottom - y);
+
+                                using (var roi = new Mat(frame, roiRect))
+                                using (var resizedRoi = new Mat())
+                                using (var grayRoi = new Mat())
                                 {
-                                    // =============================================
-                                    // NEW BARCODE
-                                    // =============================================
+                                    Cv2.Resize(roi, resizedRoi, new OpenCvSharp.Size(roi.Width * 2, roi.Height * 2), 0, 0, InterpolationFlags.Cubic);
+                                    Cv2.CvtColor(resizedRoi, grayRoi, ColorConversionCodes.BGR2GRAY);
 
-                                    if (
-                                        result.barcode !=
-                                        barcodeLast)
+                                    var result = barcodeService.Decode(grayRoi);
+
+                                    if (result != null && !string.IsNullOrWhiteSpace(result.barcode))
                                     {
-                                        barcodeLast =
-                                            result.barcode;
-
-
-                                        BarcodeReceived?.Invoke(
-                                            result.barcode
-                                        );
+                                        // Gửi mã đọc được ra UI (Bao gồm cả text từ QR Code và Barcode)
+                                        BarcodeReceived?.Invoke(result.barcode);
                                     }
                                 }
                             }
                         }
                     }
 
-
-                    await Task.Delay(
-                        DetectionDelay,
-                        token
-                    );
+                    await Task.Delay(DetectionDelay, token);
                 }
-                catch (
-                    OperationCanceledException)
+                catch (OperationCanceledException)
                 {
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine(
-                        "DetectionLoop: " +
-                        ex.Message
-                    );
+                    Debug.WriteLine("DetectionLoop: " + ex.Message);
                 }
                 finally
                 {
@@ -740,46 +842,31 @@ namespace scancode.Services
             }
         }
 
-
         // =========================================================
-        // DRAW RECTANGLE
+        // DRAW RECTANGLES (VẼ NHIỀU KHUNG CÙNG LÚC)
         // =========================================================
-
-        private void DrawRectangle(
-            Mat frame)
+        private void DrawRectangle(Mat frame)
         {
-            OpenCvSharp.Rect? rect =
-                null;
-
+            List<YoloDetection> currentDetections = null;
 
             lock (_rectLock)
             {
-                if (
-                    lastRect.HasValue &&
-                    (
-                        DateTime.Now -
-                        lastDetectTime
-                    ).TotalMilliseconds
-                    < KeepRectMs)
+                if (lastDetections != null && (DateTime.Now - lastDetectTime).TotalMilliseconds < KeepRectMs)
                 {
-                    rect =
-                        lastRect;
+                    currentDetections = new List<YoloDetection>(lastDetections);
                 }
             }
 
-
-            if (!rect.HasValue)
+            if (currentDetections == null || currentDetections.Count == 0)
                 return;
 
-
-            Cv2.Rectangle(
-                frame,
-                rect.Value,
-                Scalar.Lime,
-                3
-            );
+            foreach (var det in currentDetections)
+            {
+                // ClassId = 0 (Barcode) -> Màu Xanh Lá | ClassId = 1 (QR Code) -> Màu Đỏ
+                Scalar color = (det.ClassId == 0) ? Scalar.Lime : Scalar.Red;
+                Cv2.Rectangle(frame, det.Rect, color, 3);
+            }
         }
-
 
         // =========================================================
         // STOP
@@ -872,7 +959,7 @@ namespace scancode.Services
 
             lock (_rectLock)
             {
-                lastRect = null;
+                lastDetections?.Clear();
 
                 lastDetectTime =
                     DateTime.MinValue;

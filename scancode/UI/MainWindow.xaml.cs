@@ -5,6 +5,7 @@ using scancode.Services;
 using scancode.UI;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -166,8 +167,8 @@ namespace scancode
             dgHistory.ItemsSource =
                 LHistory;
 
-            _dataBinding.totalList =
-                LHistory.Count;
+            _dataBinding.totalList = 0;
+                //LHistory.Count;
 
             _dataBinding.IsScaleConnected =
                 sttConnect;
@@ -434,32 +435,8 @@ namespace scancode
         private void Port_DataReceived(
             string data)
         {
-            string s = "";
-
-
-            foreach (char c in data)
-            {
-                try
-                {
-                    int a =
-                        int.Parse(
-                            c.ToString()
-                        );
-
-
-                    s +=
-                        a.ToString();
-
-
-                    kg_scale =
-                        (kg_scale * 10) + a;
-                }
-                catch
-                {
-                    continue;
-                }
-            }
-
+            // Lọc lấy số
+            string match = Regex.Match(data, @"\d+(\.\d+)?").Value;
 
             /*
              * Chỉ update UI ở Dispatcher.
@@ -468,7 +445,7 @@ namespace scancode
             Dispatcher.BeginInvoke(
                 new Action(() =>
                 {
-                    TxtKg.Text =s;
+                    TxtKg.Text =match.ToString();
                     insertDataHistory();
                 })
             );
@@ -577,6 +554,8 @@ namespace scancode
 
                         TxtQty.Text =
                             prData.GAMNG.ToString();
+
+                        _portService.RequestWeight();
                     }
                     else
                     {
