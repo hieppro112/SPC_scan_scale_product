@@ -8,7 +8,9 @@
         WindowStyle="None"
         AllowsTransparency="True"
         ResizeMode="CanResizeWithGrip"
-        Background="Transparent">
+        Background="Transparent"
+        Closed="Window_Closed"
+        StateChanged="Window_StateChanged">
 
     <Window.Resources>
 
@@ -496,7 +498,7 @@
             <Border Grid.Row="0" Background="{StaticResource BgWhite}"
                     BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1.5"
                     MouseLeftButtonDown="TitleBar_MouseDown">
-                <Grid Margin="14,0,8,0">
+                <Grid Margin="14,0,8,0" Loaded="Grid_Loaded">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -514,21 +516,6 @@
                         <TextBlock Text="Cân kí theo PO — Quét tự động nền"
                                    FontSize="12" Foreground="{StaticResource TxtMuted}" VerticalAlignment="Center"/>
                     </StackPanel>
-
-                    <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                            Background="#EDF7F0" BorderBrush="#B6E8C8" BorderThickness="1"
-                            CornerRadius="20" Padding="12,4">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="{StaticResource Green}"
-                                     VerticalAlignment="Center" Margin="0,0,7,0">
-                                <Ellipse.Effect>
-                                    <DropShadowEffect Color="#22C55E" BlurRadius="5" ShadowDepth="0"/>
-                                </Ellipse.Effect>
-                            </Ellipse>
-                            <TextBlock x:Name="TxtStatus" Text="Đang chạy — Camera sẵn sàng"
-                                       FontSize="12" Foreground="#16A34A" FontWeight="Medium"/>
-                        </StackPanel>
-                    </Border>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Style="{StaticResource BtnOut}" Width="40" Height="40" Margin="2,0"
@@ -550,12 +537,7 @@
                 <Border Grid.Column="0" Background="{StaticResource BgWhite}"
                         BorderBrush="{StaticResource Border}" BorderThickness="0,0,1.5,0">
                     <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <StackPanel Grid.Row="0" Margin="10,12,10,0">
+                        <StackPanel Margin="10,12,10,0">
                             <TextBlock Text="CHÍNH" FontSize="10" FontWeight="Bold"
                                        Foreground="{StaticResource TxtMuted}" Margin="10,0,0,6"/>
 
@@ -565,100 +547,19 @@
                                     <TextBlock Text="Dashboard"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="nav_maneger_po" Click="nav_maneger_po_Click" Style="{StaticResource NavBtn}" Margin="0,1">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📋" FontSize="13" Width="22"/>
-                                    <TextBlock Text="Quản lý PO"/>
-                                </StackPanel>
-                            </Button>
                             <Button x:Name="nav_history_scale" Click="nav_history_scale_Click" Style="{StaticResource NavBtn}" Margin="0,1">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="☰" FontSize="14" Width="22"/>
                                     <TextBlock Text="Lịch sử cân"/>
                                 </StackPanel>
                             </Button>
-                            
-                            <!--<Button Style="{StaticResource NavBtn}" Margin="0,1">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📊" FontSize="13" Width="22"/>
-                                    <TextBlock Text="Báo cáo"/>
-                                </StackPanel>
-                            </Button>-->
                             <Button x:Name="nav_export_csv" Click="nav_export_csv_Click" Style="{StaticResource NavBtn}" Margin="0,1">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="↑" FontSize="14" Width="22"/>
                                     <TextBlock Text="Xuất Excel"/>
                                 </StackPanel>
                             </Button>
-
-                            <Border BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Margin="0,10,0,10"/>
-
-                            <TextBlock Text="HỆ THỐNG" FontSize="10" FontWeight="Bold"
-                                       Foreground="{StaticResource TxtMuted}" Margin="10,0,0,6"/>
-
-                            <Button Style="{StaticResource NavBtn}" Margin="0,1">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="⚙" FontSize="14" Width="22"/>
-                                    <TextBlock Text="Cài đặt cân"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource NavBtn}" Margin="0,1">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="◎" FontSize="14" Width="22"/>
-                                    <TextBlock Text="Thiết bị"/>
-                                    <Ellipse Width="6" Height="6" Fill="{StaticResource Green}"
-                                             VerticalAlignment="Center" Margin="14,0,0,0"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource NavBtn}" Margin="0,1">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🔔" FontSize="13" Width="22"/>
-                                    <TextBlock Text="Thông báo"/>
-                                </StackPanel>
-                            </Button>
                         </StackPanel>
-
-                        <Border Grid.Row="1" Margin="12,0,12,14"
-                                Background="{StaticResource BgLight}"
-                                BorderBrush="{StaticResource Border}" BorderThickness="1"
-                                CornerRadius="10" Padding="12,10">
-                            <StackPanel>
-                                <TextBlock Text="PHÍM TẮT" FontSize="10" FontWeight="Bold"
-                                           Foreground="{StaticResource TxtMuted}" Margin="0,0,0,8"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                    <Border Background="{StaticResource AccentLight}" CornerRadius="4" Padding="5,2" Margin="0,0,7,0">
-                                        <TextBlock Text="Ctrl+S" FontSize="10" FontFamily="Consolas"
-                                                   Foreground="{StaticResource Accent}" FontWeight="SemiBold"/>
-                                    </Border>
-                                    <TextBlock Text="Bắt đầu quét" FontSize="11"
-                                               Foreground="{StaticResource TxtSub}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                    <Border Background="{StaticResource AccentLight}" CornerRadius="4" Padding="5,2" Margin="0,0,7,0">
-                                        <TextBlock Text="Ctrl+P" FontSize="10" FontFamily="Consolas"
-                                                   Foreground="{StaticResource Accent}" FontWeight="SemiBold"/>
-                                    </Border>
-                                    <TextBlock Text="Tạm dừng" FontSize="11"
-                                               Foreground="{StaticResource TxtSub}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                                    <Border Background="{StaticResource AccentLight}" CornerRadius="4" Padding="5,2" Margin="0,0,7,0">
-                                        <TextBlock Text="Enter" FontSize="10" FontFamily="Consolas"
-                                                   Foreground="{StaticResource Accent}" FontWeight="SemiBold"/>
-                                    </Border>
-                                    <TextBlock Text="Xác nhận cân" FontSize="11"
-                                               Foreground="{StaticResource TxtSub}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <Border Background="{StaticResource AccentLight}" CornerRadius="4" Padding="5,2" Margin="0,0,7,0">
-                                        <TextBlock Text="F5" FontSize="10" FontFamily="Consolas"
-                                                   Foreground="{StaticResource Accent}" FontWeight="SemiBold"/>
-                                    </Border>
-                                    <TextBlock Text="Làm mới" FontSize="11"
-                                               Foreground="{StaticResource TxtSub}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
                     </Grid>
                 </Border>
 
@@ -670,11 +571,9 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                 <TextBlock Text="Cân kí theo PO" FontSize="19" FontWeight="Bold"
                                            Foreground="{StaticResource TxtPrimary}"/>
-                                <TextBlock x:Name="TxtSession" Text="Phiên làm việc: —"
-                                           FontSize="12" Foreground="{StaticResource TxtMuted}" Margin="0,3,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <ComboBox x:Name="cbm_camera" 
@@ -685,11 +584,11 @@
                                       SelectionChanged="cbm_camera_SelectionChanged"
                                           >
                                 </ComboBox>
-                                <Button Style="{StaticResource BtnOut}" Margin="0,0,8,0"
+                                <Button Style="{StaticResource BtnOut}" Margin="0,0,8,0" x:Name="btn_config" Click="btn_config_Click"
                                         >
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="↓ " FontSize="12"/>
-                                        <TextBlock Text="Xuất Excel"/>
+                                        <TextBlock Text="⚙" FontSize="12"/>
+                                        <TextBlock Text="Config"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource BtnDanger}" Margin="0,0,8,0" Click="Button_Click"
@@ -717,24 +616,11 @@
 
                             <Border Grid.Column="0" Style="{StaticResource Card}" Padding="14" x:Name="MainDasboard">
                                 <StackPanel>
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                            <TextBlock Text="◎ " FontSize="15" Foreground="{StaticResource Accent}"/>
-                                            <TextBlock Text="Camera quét barcode" FontSize="14"
-                                                       FontWeight="SemiBold" Foreground="{StaticResource TxtPrimary}"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Tự động quét" FontSize="12"
-                                                       Foreground="{StaticResource TxtMuted}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <ToggleButton x:Name="ToggleAuto" Style="{StaticResource Toggle}"
-                                                         />
-                                        </StackPanel>
-                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="◎ " FontSize="15" Foreground="{StaticResource Accent}"/>
+                                        <TextBlock Text="Camera quét barcode" FontSize="14"
+                                                   FontWeight="SemiBold" Foreground="{StaticResource TxtPrimary}"/>
+                                    </StackPanel>
 
                                     <Border Background="#1A1D2E" CornerRadius="10" ClipToBounds="True" Height="300">
                                         <Grid>
@@ -792,9 +678,7 @@
                                     <Grid Margin="0,12,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="10"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="10"/>
+                                            <ColumnDefinition Width="14"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
@@ -807,27 +691,10 @@
                                                 <TextBlock x:Name="txtBarcode" Text="—"
                                                            FontSize="13" FontWeight="Bold" FontFamily="Consolas"
                                                            Foreground="{StaticResource Accent}"/>
-                                                <!--<TextBlock x:Name="TxtBarcodeType" Text="—"
-                                                           FontSize="11" Foreground="{StaticResource Green}"
-                                                           FontWeight="SemiBold" Margin="0,3,0,0"/>-->
                                             </StackPanel>
                                         </Border>
 
                                         <Border Grid.Column="2" Background="{StaticResource BgLight}"
-                                                BorderBrush="{StaticResource Border}" BorderThickness="1.5"
-                                                CornerRadius="8" Padding="12,10">
-                                            <StackPanel>
-                                                <TextBlock Text="PO KHỚP" FontSize="10" FontWeight="Bold"
-                                                           Foreground="{StaticResource TxtMuted}" Margin="0,0,0,4"/>
-                                                <TextBlock x:Name="TxtMatchPO" Text="—"
-                                                           FontSize="13" FontWeight="Bold" FontFamily="Consolas"
-                                                           Foreground="{StaticResource Amber}"/>
-                                                <!--<TextBlock x:Name="TxtMatchProduct" Text="—"
-                                                           FontSize="11" Foreground="{StaticResource TxtSub}" Margin="0,3,0,0"/>-->
-                                            </StackPanel>
-                                        </Border>
-
-                                        <Border Grid.Column="4" Background="{StaticResource BgLight}"
                                                 BorderBrush="{StaticResource Border}" BorderThickness="1.5"
                                                 CornerRadius="8" Padding="12,10">
                                             <StackPanel>
@@ -836,8 +703,6 @@
                                                 <TextBlock x:Name="TxtScanTime" Text="—"
                                                            FontSize="13" FontWeight="Bold" FontFamily="Consolas"
                                                            Foreground="{StaticResource TxtPrimary}"/>
-                                                <!--<TextBlock x:Name="TxtScanCount" Text="—"
-                                                           FontSize="11" Foreground="{StaticResource TxtSub}" Margin="0,3,0,0"/>-->
                                             </StackPanel>
                                         </Border>
                                     </Grid>
@@ -874,44 +739,6 @@
                                         </Border>
 
                                         <Grid Margin="0,0,0,14">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="8"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="8"/>
-                                                <RowDefinition Height="Auto"/>
-                                            </Grid.RowDefinitions>
-
-                                            <Border Grid.Column="0" Grid.Row="0" Background="{StaticResource BgLight}" CornerRadius="7" Padding="10,8">
-                                                <StackPanel>
-                                                    <TextBlock Text="CÂN BÌ" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TxtMuted}" Margin="0,0,0,3"/>
-                                                    <TextBlock x:Name="TxtTare" Text="0.000 kg" FontSize="13" FontWeight="SemiBold"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Grid.Column="2" Grid.Row="0" Background="{StaticResource BgLight}" CornerRadius="7" Padding="10,8">
-                                                <StackPanel>
-                                                    <TextBlock Text="THỰC TẾ" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TxtMuted}" Margin="0,0,0,3"/>
-                                                    <TextBlock x:Name="TxtNet" Text="0.000 kg" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Grid.Column="0" Grid.Row="2" Background="{StaticResource BgLight}" CornerRadius="7" Padding="10,8">
-                                                <StackPanel>
-                                                    <TextBlock Text="QUY CÁCH" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TxtMuted}" Margin="0,0,0,3"/>
-                                                    <TextBlock x:Name="TxtSpec" Text="0.000 kg" FontSize="13" FontWeight="SemiBold"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Grid.Column="2" Grid.Row="2" Background="{StaticResource BgLight}" CornerRadius="7" Padding="10,8">
-                                                <StackPanel>
-                                                    <TextBlock Text="SAI SỐ" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TxtMuted}" Margin="0,0,0,3"/>
-                                                    <TextBlock x:Name="TxtDeviation" Text="0.000 kg" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Amber}"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </Grid>
-
-                                        <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="8"/>
@@ -969,7 +796,7 @@
                                                 <TextBlock Grid.Column="1" x:Name="TxtPSTX" Text="—" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource GreenDark}" HorizontalAlignment="Right"/>
                                             </Grid>
                                             <Border BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Margin="0,0,0,8"/>
-                                            <Grid Margin="0,0,0,10">
+                                            <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition/>
                                                     <ColumnDefinition/>
@@ -978,49 +805,10 @@
                                                 <TextBlock Grid.Column="1" x:Name="TxtQty" Text="—" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amber}" HorizontalAlignment="Right"/>
                                             </Grid>
                                         </StackPanel>
-
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                            <TextBlock Text="Tiến độ" FontSize="11" Foreground="{StaticResource TxtMuted}"/>
-                                            <TextBlock x:Name="TxtPOProgress" Text=" 0%" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource GreenDark}"/>
-                                        </StackPanel>
-                                        <Border Background="#F0F2F8" CornerRadius="4" Height="6" ClipToBounds="True">
-                                            <Border x:Name="ProgressBar" CornerRadius="4" Background="{StaticResource Accent}" HorizontalAlignment="Left" Width="0"/>
-                                        </Border>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
                         </Grid>
-
-                        <UniformGrid x:Name="Main_maneger_po" Rows="1" Columns="4" Height="80" Margin="0,0,0,14">
-                            <Border x:Name="total_scale" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,8,0">
-                                <StackPanel>
-                                    <TextBlock Text="TỔNG LƯỢT CÂN" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TxtMuted}" Margin="0,0,0,6"/>
-                                    <TextBlock x:Name="StatTotal" Text="0" FontSize="22" FontWeight="Bold"/>
-                                    <TextBlock x:Name="StatTotalSub" Text="hôm nay" FontSize="11" Foreground="{StaticResource TxtMuted}" Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </Border>
-                            <Border x:Name="total_kg_scale" Style="{StaticResource Card}" Padding="14,12" Margin="4,0">
-                                <StackPanel>
-                                    <TextBlock Text="TỔNG KG ĐÃ CÂN" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TxtMuted}" Margin="0,0,0,6"/>
-                                    <TextBlock x:Name="StatKg" Text="0.000" FontSize="22" FontWeight="Bold" Foreground="{StaticResource Accent}"/>
-                                    <TextBlock x:Name="StatKgSub" Text="kg" FontSize="11" Foreground="{StaticResource TxtMuted}" Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </Border>
-                            <Border x:Name="total_kg_success" Style="{StaticResource Card}" Padding="14,12" Margin="4,0">
-                                <StackPanel>
-                                    <TextBlock Text="THÀNH CÔNG" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TxtMuted}" Margin="0,0,0,6"/>
-                                    <TextBlock x:Name="StatOk" Text="0" FontSize="22" FontWeight="Bold" Foreground="{StaticResource GreenDark}"/>
-                                    <TextBlock x:Name="StatOkRate" Text="—" FontSize="11" Foreground="{StaticResource GreenDark}" Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </Border>
-                            <Border x:Name="total_kg_fail" Style="{StaticResource Card}" Padding="14,12" Margin="8,0,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="LỖI / LỆCH CÂN" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TxtMuted}" Margin="0,0,0,6"/>
-                                    <TextBlock x:Name="StatErr" Text="0" FontSize="22" FontWeight="Bold" Foreground="{StaticResource Red}"/>
-                                    <TextBlock x:Name="StatErrSub" Text="Cần kiểm tra lại" FontSize="11" Foreground="{StaticResource Red}" Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </Border>
-                        </UniformGrid>
 
                         <Border x:Name="Main_list_history" Style="{StaticResource Card}" Padding="14">
                             <StackPanel>

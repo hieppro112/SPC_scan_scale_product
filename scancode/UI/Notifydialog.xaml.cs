@@ -1,5 +1,7 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace scancode.UI
 {
@@ -12,7 +14,11 @@ namespace scancode.UI
 
     public partial class NotifyDialog : Window
     {
+        private const int AutoCloseSeconds = 3;
+
         public bool Confirmed { get; private set; } = false;
+
+        private readonly DispatcherTimer _autoCloseTimer;
 
         public NotifyDialog(string message,
                             NotifyType type = NotifyType.Success,
@@ -20,6 +26,16 @@ namespace scancode.UI
                             string okText = "Xác nhận")
         {
             InitializeComponent();
+
+            // Tự tắt sau một khoảng thời gian nếu người dùng không bấm nút nào
+            _autoCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(AutoCloseSeconds) };
+            _autoCloseTimer.Tick += (s, e) =>
+            {
+                _autoCloseTimer.Stop();
+                Close();
+            };
+            Loaded += (s, e) => _autoCloseTimer.Start();
+            Closed += (s, e) => _autoCloseTimer.Stop();
 
             // Chọn theme theo loại
             string icon, title, colorHex;

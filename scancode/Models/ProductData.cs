@@ -14,5 +14,6 @@ namespace scancode.Models
         public string PSTX { get; set; }
         public float GAMNG { get; set; }
         public float NumWeight { get; set; }
+        public int Qty { get; set; }
     }
 }
