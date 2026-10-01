@@ -27,9 +27,11 @@ namespace scancode.Services
 
                 _port.DataReceived += (s, e) =>
                 {
+                    Console.WriteLine("[portService] DataReceived event fired, EventType=" + e.EventType);
                     try
                     {
                         string rwData = _port.ReadLine();
+                        Console.WriteLine("[portService] ReadLine raw: \"" + rwData + "\"");
                         if (!string.IsNullOrWhiteSpace(rwData))
                         {
                             string cleanWeight = rwData.Trim();
@@ -41,16 +43,15 @@ namespace scancode.Services
                     }
                 };
 
-
                 _port.Open();
-                DataBinding binding = new DataBinding();
-                binding.IsScaleConnected = _port.IsOpen;
 
+                Console.WriteLine("[portService] Open " + namePort + " => IsOpen=" + _port.IsOpen);
 
                 return _port.IsOpen;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine("[portService] connect() loi: " + ex);
                 return false;
             }
         }
