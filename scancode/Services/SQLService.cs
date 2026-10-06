@@ -192,27 +192,20 @@ WHERE REQ_HED.AUFNR = @id;";
             }
         }
 
-        public int getCoutListHistory()
+        public async Task<int> getCoutListHistory()
         {
             try
             {
                 using (SqlConnection conn = new SqlConnection(connectHistory))
                 {
-                    conn.Open();
-                    using (SqlCommand cmd = new SqlCommand(query_getCountList_history,conn))
+                    await conn.OpenAsync();
+                    using (SqlCommand cmd = new SqlCommand(query_getCountList_history, conn))
                     {
-                        using (SqlDataReader reader = cmd.ExecuteReader() )
-                        {
-                            while (reader.Read())
-                            {
-                                int.TryParse(reader["TotalRow"].ToString(), out int countList);
-                                return countList;
-                            }
-                        }
-
+                        object result = await cmd.ExecuteScalarAsync();
+                        int.TryParse(result?.ToString(), out int countList);
+                        return countList;
                     }
                 }
-                return 0;
             }
             catch
             {

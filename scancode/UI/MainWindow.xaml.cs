@@ -66,22 +66,32 @@ namespace scancode
             Console.WriteLine($"64-bit Process: {Environment.Is64BitProcess}");
             Console.WriteLine($"64-bit OS: {Environment.Is64BitOperatingSystem}");
 
+            AppLog.Write("MainWindow: bắt đầu khởi tạo");
+            ContentRendered += (s, e) => AppLog.Write("MainWindow: đã hiển thị xong");
+
             // SERVICES
             sql = new SQLService();
+            AppLog.Write("MainWindow: SQLService xong");
             InitializeComponent();
+            AppLog.Write("MainWindow: InitializeComponent xong");
             DataContext = _dataBinding;
             camera = new CameraService();
+            AppLog.Write("MainWindow: CameraService xong");
             _portService = new portService();
+            AppLog.Write("MainWindow: khởi tạo service xong");
 
             // SCALE
             LHistory = new List<dataHistory>();
             _portService.DataReceived += Port_DataReceived;
             bool sttConnect = _portService.connect();
+            AppLog.Write("Cân COM: " + (sttConnect ? "đã kết nối" : "KHÔNG kết nối được"));
 
             // CAMERA EVENTS
             camera.FrameReceived += Camera_FrameReceived;
             camera.BarcodeReceived += Camera_BarcodeReceived;
+            AppLog.Write("MainWindow: bắt đầu liệt kê camera");
             camera.GetCameraList(cbm_camera);
+            AppLog.Write("MainWindow: liệt kê camera xong, số camera = " + cbm_camera.Items.Count);
 
             // PRODUCT
             prData = new ProductData();
@@ -114,6 +124,7 @@ namespace scancode
                 // Không để frame camera tồn tại
                 ClearPendingDisplayFrame();
 
+                isCompactMode = false;
                 miniWindow?.Close();
 
                 // Dừng camera
@@ -138,6 +149,7 @@ namespace scancode
             {
                 miniWindow = new MiniWindow();
                 miniWindow.RestoreRequested += ExitCompactMode;
+                miniWindow.Closed += MiniWindow_Closed;
             }
 
             miniWindow.SnapToBottomRight();
@@ -153,6 +165,21 @@ namespace scancode
             isCompactMode = false;
 
             miniWindow?.Hide();
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+        }
+
+        // Nếu cửa sổ mini bị đóng (Alt+F4...) khi đang thu nhỏ thì hiện lại cửa sổ chính,
+        // tránh để tiến trình chạy ngầm không có cửa sổ nào hiển thị.
+        private void MiniWindow_Closed(object sender, EventArgs e)
+        {
+            miniWindow = null;
+
+            if (!isCompactMode)
+                return;
+
+            isCompactMode = false;
             Show();
             WindowState = WindowState.Normal;
             Activate();
@@ -271,7 +298,7 @@ namespace scancode
             lastBarcode = code;
 
             // Không dùng Invoke vì nó block thread DetectionLoop.
-            Dispatcher.BeginInvoke(new Action(() => OnBarcodeDetected(code, "")));
+            Dispatcher.BeginInvoke(new Action(async () => await OnBarcodeDetected(code, "")));
         }
 
         // ==================== SCALE DATA ====================
@@ -419,6 +446,7 @@ namespace scancode
             }
             catch (Exception ex)
             {
+                AppLog.Write("Lỗi đổi/mở camera: " + ex);
                 MessageBox.Show("Không thể đổi camera:\n" + ex.Message);
             }
             finally
@@ -454,10 +482,10 @@ namespace scancode
         }
 
         // ==================== CONFIRM SCALE ====================
-        private void btn_confirm_scale_Click(object sender, RoutedEventArgs e)
+        private async void btn_confirm_scale_Click(object sender, RoutedEventArgs e)
         {
             _portService.RequestWeight();
-            insertDataHistory();
+            await insertDataHistory();
         }
 
         // ==================== INSERT HISTORY ====================
@@ -510,21 +538,21 @@ namespace scancode
 
         private void Check_Weight(double weight,dataHistory dathis)
         {
-            double tb_kg = prData.NumWeight / prData.Qty;
+            double tb_kg = Math.Round(prData.NumWeight / prData.Qty,3);
             double scale = tb_kg * dathis.GAMNG;
             //so sanh so kg trong du lieu so voi khi cân
             if (scale != weight)
             {
-                NotifyDialog.ShowWarning($"Số cân hiện tại:{dathis.kg}  bị lệch với master: {scale}");
+                //NotifyDialog.ShowWarning($"Số cân hiện tại:{dathis.kg}  bị lệch với master: {scale}");
                 JsonCreate.SavaJsonErr(dathis,jsonPath);
             }
         }
 
         // ==================== HISTORY RESET ====================
-        private void btn_restart_dgv_Click(object sender, RoutedEventArgs e)
+        private async void btn_restart_dgv_Click(object sender, RoutedEventArgs e)
         {
             update_status_changed();
-            changed_value_prev_next();
+            await changed_value_prev_next();
         }
 
         // ==================== SEARCH ====================
@@ -553,31 +581,31 @@ namespace scancode
         }
 
         // ==================== PREVIOUS PAGE ====================
-        private void BtnPrevPage_Click(object sender, RoutedEventArgs e)
+        private async void BtnPrevPage_Click(object sender, RoutedEventArgs e)
         {
             if (pageCurrent <= 1)
                 return;
 
             pageCurrent--;
-            changed_value_prev_next();
+            await changed_value_prev_next();
             update_status_changed();
         }
 
         // ==================== NEXT PAGE ====================
-        private void BtnNextPage_Click(object sender, RoutedEventArgs e)
+        private async void BtnNextPage_Click(object sender, RoutedEventArgs e)
         {
             if (pageCurrent >= countPage)
                 return;
 
             pageCurrent++;
-            changed_value_prev_next();
+            await changed_value_prev_next();
             update_status_changed();
         }
 
         // ==================== LAST PAGE ====================
         private async void BtnLastPage_Click(object sender, RoutedEventArgs e)
         {
-            int total = sql.getCoutListHistory();
+            int total = await sql.getCoutListHistory();
             if (total == 0)
                 return;
 
@@ -620,7 +648,7 @@ namespace scancode
 
                 dgHistory.ItemsSource = await sql.GetListHistory(po: TxtSearch.Text, length: valuecbm);
 
-                int total = sql.getCoutListHistory();
+                int total = await sql.getCoutListHistory();
                 _dataBinding.totalPage = total;
 
                 double kqPage = total / (valuecbm * 1.0);

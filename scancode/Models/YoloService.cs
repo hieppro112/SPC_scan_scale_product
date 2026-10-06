@@ -18,6 +18,12 @@ namespace scancode.Models
         // Ngưỡng tin cậy (Hạ xuống 0.35f để dễ bắt QR Code hơn nếu ảnh bị mờ nhẹ)
         private const float ConfidenceThreshold = 0.15f;
 
+        // Buffer tái sử dụng mỗi frame thay vì cấp phát mới (giảm áp lực GC trong vòng lặp detect liên tục)
+        private readonly Mat _letterboxScratch = new Mat(InputHeight, InputWidth, MatType.CV_8UC3);
+        private readonly Mat _resizedScratch = new Mat();
+        private readonly Mat _rgbScratch = new Mat();
+        private readonly float[] _tensorBuffer = new float[3 * InputWidth * InputHeight];
+
         public YoloService(string modelPath)
         {
             try
@@ -71,104 +77,101 @@ namespace scancode.Models
             if (frame == null || frame.Empty())
                 return resultsList;
 
-            Mat resized = null;
+            // 1. LETTERBOX (Giữ nguyên tỷ lệ ảnh, chèn viền xám 114) — ghi vào buffer tái sử dụng
+            Letterbox(frame, out float scale, out int padX, out int padY);
 
-            try
+            // 2. MAT -> TENSOR (ghi vào buffer tái sử dụng, không cấp phát mảng mới mỗi frame)
+            float[] inputData = MatToTensorData(_letterboxScratch);
+
+            var tensor = new DenseTensor<float>(
+                inputData,
+                new int[] { 1, 3, InputHeight, InputWidth }
+            );
+
+            // 3. INPUT NAME
+            string inputName = _session.InputMetadata.Keys.First();
+            var inputs = new List<NamedOnnxValue>
             {
-                // 1. LETTERBOX (Giữ nguyên tỷ lệ ảnh, chèn viền xám 114)
-                Letterbox(frame, out resized, out float scale, out int padX, out int padY);
+                NamedOnnxValue.CreateFromTensor(inputName, tensor)
+            };
 
-                // 2. MAT -> TENSOR
-                float[] inputData = MatToTensorData(resized);
+            // 4. RUN MODEL
+            using (var results = _session.Run(inputs))
+            {
+                var outputTensor = results.First().AsTensor<float>();
+                var dimensions = outputTensor.Dimensions;
 
-                var tensor = new DenseTensor<float>(
-                    inputData,
-                    new int[] { 1, 3, InputHeight, InputWidth }
-                );
+                // Lấy dữ liệu ra mảng phẳng 1 lần duy nhất — indexer đa chiều outputTensor[a,b,c]
+                // cấp phát 1 mảng int[] "indices" MỚI mỗi lần gọi và tính lại stride, rất tốn
+                // khi gọi hàng chục nghìn lần/frame (8400 anchor x nhiều field). Dữ liệu ONNX
+                // luôn là row-major nên đọc phẳng rồi tự tính offset cho kết quả giống hệt.
+                float[] flat = outputTensor.ToArray();
 
-                // 3. INPUT NAME
-                string inputName = _session.InputMetadata.Keys.First();
-                var inputs = new List<NamedOnnxValue>
+                if (dimensions.Length == 3 && dimensions[1] == 6)
                 {
-                    NamedOnnxValue.CreateFromTensor(inputName, tensor)
-                };
+                    int numAnchors = dimensions[2]; // 8400
 
-                // 4. RUN MODEL
-                using (var results = _session.Run(inputs))
-                {
-                    var outputTensor = results.First().AsTensor<float>();
-                    var dimensions = outputTensor.Dimensions;
-
-
-                    if (dimensions.Length == 3 && dimensions[1] == 6)
+                    for (int i = 0; i < numAnchors; i++)
                     {
-                        int numAnchors = dimensions[2]; // 8400
+                        // Lấy điểm số của 2 class
+                        float scoreClass0 = flat[4 * numAnchors + i]; // Barcode
+                        float scoreClass1 = flat[5 * numAnchors + i]; // QR Code
 
-                        for (int i = 0; i < numAnchors; i++)
+                        // Tìm class có confidence lớn hơn
+                        float confidence = scoreClass0;
+                        int classId = 0;
+
+                        if (scoreClass1 > scoreClass0)
                         {
-                            // Lấy điểm số của 2 class
-                            float scoreClass0 = outputTensor[0, 4, i]; // Barcode
-                            float scoreClass1 = outputTensor[0, 5, i]; // QR Code
-
-                            // Tìm class có confidence lớn hơn
-                            float confidence = scoreClass0;
-                            int classId = 0;
-
-                            if (scoreClass1 > scoreClass0)
-                            {
-                                confidence = scoreClass1;
-                                classId = 1;
-                            }
-
-                            // Lọc theo ngưỡng tin cậy
-                            if (confidence < ConfidenceThreshold)
-                                continue;
-
-                            // Đọc tọa độ Center Point
-                            float cx = outputTensor[0, 0, i];
-                            float cy = outputTensor[0, 1, i];
-                            float w = outputTensor[0, 2, i];
-                            float h = outputTensor[0, 3, i];
-
-                            // Chuyển sang (x1, y1, x2, y2)
-                            float x1 = cx - (w / 2.0f);
-                            float y1 = cy - (h / 2.0f);
-                            float x2 = cx + (w / 2.0f);
-                            float y2 = cy + (h / 2.0f);
-
-                            ProcessBoundingBox(frame, scale, padX, padY, x1, y1, x2, y2, confidence, classId, resultsList);
+                            confidence = scoreClass1;
+                            classId = 1;
                         }
+
+                        // Lọc theo ngưỡng tin cậy
+                        if (confidence < ConfidenceThreshold)
+                            continue;
+
+                        // Đọc tọa độ Center Point
+                        float cx = flat[0 * numAnchors + i];
+                        float cy = flat[1 * numAnchors + i];
+                        float w = flat[2 * numAnchors + i];
+                        float h = flat[3 * numAnchors + i];
+
+                        // Chuyển sang (x1, y1, x2, y2)
+                        float x1 = cx - (w / 2.0f);
+                        float y1 = cy - (h / 2.0f);
+                        float x2 = cx + (w / 2.0f);
+                        float y2 = cy + (h / 2.0f);
+
+                        ProcessBoundingBox(frame, scale, padX, padY, x1, y1, x2, y2, confidence, classId, resultsList);
                     }
-                    // Trường hợp B: Định dạng [1, 300, 6] (NMS End-to-End Export)
-                    else if (dimensions.Length == 3 && dimensions[2] == 6)
-                    {
-                        int numDetections = dimensions[1]; // 300
-
-                        for (int i = 0; i < numDetections; i++)
-                        {
-                            float confidence = outputTensor[0, i, 4];
-                            if (confidence < ConfidenceThreshold)
-                                continue;
-
-                            int classId = (int)outputTensor[0, i, 5];
-
-                            float x1 = outputTensor[0, i, 0];
-                            float y1 = outputTensor[0, i, 1];
-                            float x2 = outputTensor[0, i, 2];
-                            float y2 = outputTensor[0, i, 3];
-
-                            ProcessBoundingBox(frame, scale, padX, padY, x1, y1, x2, y2, confidence, classId, resultsList);
-                        }
-                    }
-
-                    // Sắp xếp theo Confidence và lọc bỏ các khung trùng lặp bằng NMS
-                    var filteredList = NonMaximumSuppression(resultsList, 0.45f);
-                    return filteredList.OrderByDescending(x => x.Confidence).ToList();
                 }
-            }
-            finally
-            {
-                resized?.Dispose();
+                // Trường hợp B: Định dạng [1, 300, 6] (NMS End-to-End Export)
+                else if (dimensions.Length == 3 && dimensions[2] == 6)
+                {
+                    int numDetections = dimensions[1]; // 300
+
+                    for (int i = 0; i < numDetections; i++)
+                    {
+                        int baseIdx = i * 6;
+                        float confidence = flat[baseIdx + 4];
+                        if (confidence < ConfidenceThreshold)
+                            continue;
+
+                        int classId = (int)flat[baseIdx + 5];
+
+                        float x1 = flat[baseIdx + 0];
+                        float y1 = flat[baseIdx + 1];
+                        float x2 = flat[baseIdx + 2];
+                        float y2 = flat[baseIdx + 3];
+
+                        ProcessBoundingBox(frame, scale, padX, padY, x1, y1, x2, y2, confidence, classId, resultsList);
+                    }
+                }
+
+                // Sắp xếp theo Confidence và lọc bỏ các khung trùng lặp bằng NMS
+                var filteredList = NonMaximumSuppression(resultsList, 0.45f);
+                return filteredList.OrderByDescending(x => x.Confidence).ToList();
             }
         }
 
@@ -221,9 +224,9 @@ namespace scancode.Models
         }
 
         // =========================================================
-        // LETTERBOX
+        // LETTERBOX — ghi kết quả vào _letterboxScratch (tái sử dụng), không new Mat mỗi frame
         // =========================================================
-        private void Letterbox(Mat source, out Mat result, out float scale, out int padX, out int padY)
+        private void Letterbox(Mat source, out float scale, out int padX, out int padY)
         {
             scale = Math.Min((float)InputWidth / source.Width, (float)InputHeight / source.Height);
 
@@ -233,86 +236,74 @@ namespace scancode.Models
             padX = (InputWidth - newWidth) / 2;
             padY = (InputHeight - newHeight) / 2;
 
-            using (var resized = new Mat())
+            // Tô lại nền xám 114 để xóa pixel còn sót của frame trước ở vùng viền
+            _letterboxScratch.SetTo(new Scalar(114, 114, 114));
+
+            Cv2.Resize(
+                source,
+                _resizedScratch,
+                new OpenCvSharp.Size(newWidth, newHeight),
+                0, 0,
+                InterpolationFlags.Area // Tốt khi thu nhỏ ảnh, giữ chi tiết nét hơn Linear
+            );
+
+            var roi = new OpenCvSharp.Rect(padX, padY, newWidth, newHeight);
+            using (var destination = new Mat(_letterboxScratch, roi))
             {
-                //Cv2.Resize(source, resized, new OpenCvSharp.Size(newWidth, newHeight), 0, 0, InterpolationFlags.Linear);
-                // Trong hàm Letterbox() của YoloService.cs
-                Cv2.Resize(
-                    source,
-                    resized,
-                    new OpenCvSharp.Size(newWidth, newHeight),
-                    0, 0,
-                    InterpolationFlags.Area // <-- Đổi từ Linear sang Area (rất tốt khi thu nhỏ ảnh giữ chi tiết nét)
-                );
-
-                result = new Mat(InputHeight, InputWidth, MatType.CV_8UC3, new Scalar(114, 114, 114));
-
-                var roi = new OpenCvSharp.Rect(padX, padY, newWidth, newHeight);
-                using (var destination = new Mat(result, roi))
-                {
-                    resized.CopyTo(destination);
-                }
+                _resizedScratch.CopyTo(destination);
             }
         }
 
         // =========================================================
-        // MAT -> TENSOR
+        // MAT -> TENSOR — ghi vào _tensorBuffer (tái sử dụng), không Cv2.Split (3 Mat/frame)
         // =========================================================
         private float[] MatToTensorData(Mat mat)
         {
-            using (var rgb = new Mat())
+            Cv2.CvtColor(mat, _rgbScratch, ColorConversionCodes.BGR2RGB);
+
+            // Đọc từng pixel 3 kênh (R,G,B) một lần duy nhất rồi tự tách thành planar (CHW),
+            // cho kết quả giống hệt cách Split + GetArray từng kênh trước đây.
+            _rgbScratch.GetArray(out Vec3b[] pixels);
+
+            int channelSize = InputWidth * InputHeight;
+            for (int p = 0; p < channelSize; p++)
             {
-                Cv2.CvtColor(mat, rgb, ColorConversionCodes.BGR2RGB);
-                Mat[] channels = Cv2.Split(rgb);
-
-                try
-                {
-                    int channelSize = InputWidth * InputHeight;
-                    float[] data = new float[3 * channelSize];
-
-                    for (int c = 0; c < 3; c++)
-                    {
-                        channels[c].GetArray(out byte[] channelBytes);
-                        int offset = c * channelSize;
-
-                        for (int i = 0; i < channelSize; i++)
-                        {
-                            data[offset + i] = channelBytes[i] / 255.0f;
-                        }
-                    }
-
-                    return data;
-                }
-                finally
-                {
-                    foreach (Mat channel in channels)
-                    {
-                        channel.Dispose();
-                    }
-                }
+                Vec3b px = pixels[p];
+                _tensorBuffer[p] = px.Item0 / 255.0f;
+                _tensorBuffer[channelSize + p] = px.Item1 / 255.0f;
+                _tensorBuffer[2 * channelSize + p] = px.Item2 / 255.0f;
             }
+
+            return _tensorBuffer;
         }
 
         private List<YoloDetection> NonMaximumSuppression(List<YoloDetection> detections, float iouThreshold = 0.45f)
         {
-            var result = new List<YoloDetection>();
-            var sortedDetections = detections.OrderByDescending(x => x.Confidence).ToList();
+            var sorted = detections.OrderByDescending(x => x.Confidence).ToList();
+            int n = sorted.Count;
+            var suppressed = new bool[n];
+            var result = new List<YoloDetection>(n);
 
-            while (sortedDetections.Count > 0)
+            // Đánh dấu loại bỏ thay vì RemoveAt giữa vòng lặp (RemoveAt dịch chuyển cả mảng,
+            // cộng dồn thành chi phí thừa không cần thiết khi có nhiều box ứng viên).
+            for (int i = 0; i < n; i++)
             {
-                var current = sortedDetections[0];
-                result.Add(current);
-                sortedDetections.RemoveAt(0);
+                if (suppressed[i])
+                    continue;
 
-                for (int i = sortedDetections.Count - 1; i >= 0; i--)
+                var current = sorted[i];
+                result.Add(current);
+
+                for (int j = i + 1; j < n; j++)
                 {
-                    var target = sortedDetections[i];
-                    if (CalculateIoU(current.Rect, target.Rect) > iouThreshold)
-                    {
-                        sortedDetections.RemoveAt(i);
-                    }
+                    if (suppressed[j])
+                        continue;
+
+                    if (CalculateIoU(current.Rect, sorted[j].Rect) > iouThreshold)
+                        suppressed[j] = true;
                 }
             }
+
             return result;
         }
 
@@ -338,6 +329,9 @@ namespace scancode.Models
         public void Dispose()
         {
             _session?.Dispose();
+            _letterboxScratch?.Dispose();
+            _resizedScratch?.Dispose();
+            _rgbScratch?.Dispose();
         }
     }
 }
