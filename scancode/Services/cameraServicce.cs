@@ -522,42 +522,31 @@ namespace scancode.Services
                         // =============================================
                         // RESIZE PREVIEW
                         // =============================================
+                        // Không bọc "display" trong using: nó được giao thẳng cho
+                        // FrameReceived (subscriber nhận và tự dispose sau), nên không
+                        // cần Clone() thêm một bản nữa như trước (giảm 1 lần cấp phát/copy
+                        // ảnh mỗi ~100ms).
 
-                        using (
-                            var display =
-                                new Mat())
+                        var display = new Mat();
+                        Cv2.Resize(
+                            frame,
+                            display,
+                            new OpenCvSharp.Size(640, 360),
+                            0, 0,
+                            InterpolationFlags.Area
+                        );
+
+                        // =============================================
+                        // SEND WPF
+                        // =============================================
+
+                        try
                         {
-                            Cv2.Resize(
-                                frame,
-                                display,
-                                new OpenCvSharp.Size(
-                                    640,
-                                    360
-                                ),
-                                0,
-                                0,
-                                InterpolationFlags.Area
-                            );
-
-
-                            // =============================================
-                            // SEND WPF
-                            // =============================================
-
-                            var result =
-                                display.Clone();
-
-
-                            try
-                            {
-                                FrameReceived?.Invoke(
-                                    result
-                                );
-                            }
-                            catch
-                            {
-                                result.Dispose();
-                            }
+                            FrameReceived?.Invoke(display);
+                        }
+                        catch
+                        {
+                            display.Dispose();
                         }
                     }
 
@@ -792,8 +781,6 @@ namespace scancode.Services
                             // 2. DUYỆT QUA TẤT CẢ CÁC MÃ PHÁT HIỆN ĐƯỢC ĐỂ ĐỌC NỘI DUNG (CROP + ZXING)
                             foreach (var detection in detections)
                             {
-                                // In ra Console/Output window của Visual Studio xem ClassId thực sự là bao nhiêu
-                                Debug.WriteLine($"---> PHÁT HIỆN: ClassId = {detection.ClassId} | Confidence = {detection.Confidence}");
                                 OpenCvSharp.Rect rect = detection.Rect;
 
                                 int paddingX = (int)(rect.Width * 0.25);
